@@ -1,0 +1,345 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Emoji Snake Bug Hunt</title>
+    <style>
+        :root {
+            --bg: #111827;
+            --ui-blue: #60a5fa;
+            --danger: #f87171;
+            --success: #4ade80;
+        }
+        body, html {
+            margin: 0; padding: 0; width: 100%; height: 100%;
+            overflow: hidden; background: #000;
+            display: flex; justify-content: center; align-items: center;
+            font-family: -apple-system, system-ui, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            touch-action: none;
+        }
+        #game-container {
+            position: relative;
+            width: 375px;
+            height: 812px;
+            background: var(--bg);
+            box-shadow: 0 0 20px rgba(0,0,0,0.5);
+            overflow: hidden;
+        }
+        canvas { display: block; }
+
+        /* UI Safety Zones */
+        #ui-top-right {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            text-align: right;
+            color: white;
+            pointer-events: none;
+        }
+        #bottom-bar {
+            position: absolute;
+            bottom: 0;
+            width: 100%;
+            height: 100px;
+            background: rgba(0,0,0,0.8);
+            border-top: 2px solid #1f2937;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            color: #9ca3af;
+            font-size: 12px;
+            z-index: 10;
+        }
+        #status-effects {
+            position: absolute;
+            top: 100px;
+            right: 15px;
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+            align-items: flex-end;
+        }
+        .effect-tag {
+            padding: 4px 10px;
+            border-radius: 20px;
+            font-size: 11px;
+            font-weight: bold;
+            color: white;
+            animation: pulse 1s infinite;
+        }
+        @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.6; } 100% { opacity: 1; } }
+
+        #overlay {
+            position: absolute;
+            inset: 0;
+            background: rgba(0,0,0,0.85);
+            display: none;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            color: white;
+            z-index: 100;
+        }
+        .btn {
+            background: var(--success);
+            border: none;
+            padding: 15px 40px;
+            border-radius: 30px;
+            font-weight: bold;
+            margin-top: 20px;
+            cursor: pointer;
+            color: #000;
+        }
+    </style>
+</head>
+<body>
+
+<div id="game-container">
+    <canvas id="gameCanvas"></canvas>
+    
+    <!-- Top Left Clear for App Logo -->
+
+    <div id="ui-top-right">
+        <div id="score" style="font-size: 32px; font-weight: 800;">0</div>
+        <div id="best" style="font-size: 14px; opacity: 0.7;">BEST: 0</div>
+    </div>
+
+    <div id="status-effects"></div>
+
+    <div id="bottom-bar">
+        <div id="timer">TIME: 00:00</div>
+        <div style="margin-top:5px; font-size: 10px; letter-spacing: 1px;">SWIPE TO STEER</div>
+    </div>
+
+    <div id="overlay">
+        <h1 id="msg">CRASHED!</h1>
+        <div id="final-score" style="font-size: 20px; margin-bottom: 10px;"></div>
+        <button class="btn" onclick="reset()">REBOOT SYSTEM</button>
+    </div>
+</div>
+
+<script>
+const canvas = document.getElementById('gameCanvas');
+const ctx = canvas.getContext('2d');
+const GRID = 20;
+const WIDTH = 375;
+const HEIGHT = 812 - 100; // Bottom 100px is safe zone
+canvas.width = WIDTH;
+canvas.height = 812;
+
+// --- Game State ---
+let snake = [{x: 9, y: 15}, {x: 9, y: 16}, {x: 9, y: 17}, {x: 9, y: 18}];
+let dir = {x: 0, y: -1};
+let nextDir = {x: 0, y: -1};
+let items = [];
+let score = 0;
+let highScore = localStorage.getItem('snake_ems_best') || 0;
+let startTime = Date.now();
+let effects = {}; 
+let gameActive = true;
+
+const TYPES = {
+    BUG: { emoji: '🪲', score: 10 },
+    MUSHROOM: { emoji: '🍄', score: 5, effect: 'invert' },
+    SNAIL: { emoji: '🐌', score: 5, effect: 'slow' },
+    BOLT: { emoji: '⚡', score: 20, effect: 'fast' }
+};
+
+document.getElementById('best').innerText = `BEST: ${highScore}`;
+
+function spawnItem() {
+    const keys = Object.keys(TYPES);
+    const typeKey = keys[Math.floor(Math.random() * keys.length)];
+    const item = {
+        x: Math.floor(Math.random() * (WIDTH/GRID)),
+        y: Math.floor(Math.random() * (HEIGHT/GRID)),
+        ...TYPES[typeKey],
+        moveTick: 0
+    };
+    // Safe zones: No top-left (logo) and no overlapping snake
+    const collisionHead = snake.some(s => s.x === item.x && s.y === item.y);
+    if ((item.x < 4 && item.y < 4) || collisionHead) return spawnItem();
+    items.push(item);
+}
+
+function moveItems() {
+    items.forEach(item => {
+        item.moveTick++;
+        // Slower relative movement (every 8 snake ticks)
+        if (item.moveTick % 8 === 0) {
+            const axis = Math.random() > 0.5 ? 'x' : 'y';
+            const delta = Math.random() > 0.5 ? 1 : -1;
+            const nextPos = item[axis] + delta;
+            
+            if (axis === 'x') {
+                if (nextPos >= 0 && nextPos < WIDTH/GRID) item.x = nextPos;
+            } else {
+                if (nextPos >= 0 && nextPos < (HEIGHT/GRID)) item.y = nextPos;
+            }
+        }
+    });
+}
+
+function update() {
+    if (!gameActive) return;
+
+    moveItems();
+    dir = nextDir;
+    const head = { x: snake[0].x + dir.x, y: snake[0].y + dir.y };
+
+    // Death Checks
+    if (head.x < 0 || head.x >= WIDTH/GRID || head.y < 0 || head.y >= (HEIGHT/GRID) ||
+        snake.some((seg, i) => seg.x === head.x && seg.y === head.y)) {
+        return die();
+    }
+
+    snake.unshift(head);
+
+    // Item Collision
+    let ate = false;
+    for (let i = items.length - 1; i >= 0; i--) {
+        if (head.x === items[i].x && head.y === items[i].y) {
+            const item = items[i];
+            score += item.score;
+            if (item.effect) effects[item.effect] = 40; // Approx 8-10 seconds based on ticks
+            items.splice(i, 1);
+            ate = true;
+            if (score > highScore) {
+                highScore = score;
+                localStorage.setItem('snake_ems_best', highScore);
+            }
+        }
+    }
+
+    if (!ate) snake.pop();
+    if (items.length < 4) spawnItem();
+
+    // Effect timers
+    for (let key in effects) {
+        if (effects[key] > 0) effects[key]--;
+        else delete effects[key];
+    }
+
+    render();
+    
+    // --- Speed Tuning ---
+    let delay = 220; // Original was 120 (Too fast)
+    if (effects.slow) delay = 350; // Extra slow
+    if (effects.fast) delay = 140; // manageable "fast"
+    
+    setTimeout(update, delay);
+}
+
+function render() {
+    ctx.clearRect(0, 0, WIDTH, canvas.height);
+
+    // Draw Items
+    ctx.font = '16px serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    items.forEach(item => {
+        ctx.fillText(item.emoji, item.x * GRID + GRID/2, item.y * GRID + GRID/2);
+    });
+
+    // Draw Snake
+    snake.forEach((seg, i) => {
+        if (i === 0) {
+            ctx.font = '22px serif';
+            ctx.fillText('🐍', seg.x * GRID + GRID/2, seg.y * GRID + GRID/2);
+        } else {
+            // Tapering tail logic
+            const ratio = 1 - (i / snake.length);
+            const size = (GRID - 4) * Math.max(0.2, ratio);
+            const offset = (GRID - size) / 2;
+            
+            ctx.fillStyle = effects.invert ? '#f87171' : '#4ade80';
+            ctx.beginPath();
+            ctx.roundRect(seg.x * GRID + offset, seg.y * GRID + offset, size, size, 4);
+            ctx.fill();
+        }
+    });
+
+    // UI Updates
+    document.getElementById('score').innerText = score;
+    document.getElementById('best').innerText = `BEST: ${highScore}`;
+    const elapsed = Math.floor((Date.now() - startTime) / 1000);
+    const m = String(Math.floor(elapsed/60)).padStart(2,'0');
+    const s = String(elapsed%60).padStart(2,'0');
+    document.getElementById('timer').innerText = `TIME: ${m}:${s}`;
+
+    const statusBox = document.getElementById('status-effects');
+    statusBox.innerHTML = '';
+    Object.keys(effects).forEach(key => {
+        const span = document.createElement('div');
+        span.className = 'effect-tag';
+        span.style.background = (key === 'invert' || key === 'fast') ? 'var(--danger)' : 'var(--ui-blue)';
+        span.innerText = key.toUpperCase();
+        statusBox.appendChild(span);
+    });
+}
+
+function die() {
+    gameActive = false;
+    document.getElementById('overlay').style.display = 'flex';
+    document.getElementById('final-score').innerText = `SCORE: ${score}`;
+}
+
+function reset() {
+    score = 0;
+    snake = [{x: 9, y: 15}, {x: 9, y: 16}, {x: 9, y: 17}, {x: 9, y: 18}];
+    dir = {x: 0, y: -1};
+    nextDir = {x: 0, y: -1};
+    items = [];
+    effects = {};
+    gameActive = true;
+    startTime = Date.now();
+    document.getElementById('overlay').style.display = 'none';
+    for(let i=0; i<4; i++) spawnItem();
+    update();
+}
+
+// Control Logic
+const handleInput = (key) => {
+    const inv = effects.invert;
+    if (key === 'up' && dir.y === 0) nextDir = {x:0, y: inv ? 1 : -1};
+    if (key === 'down' && dir.y === 0) nextDir = {x:0, y: inv ? -1 : 1};
+    if (key === 'left' && dir.x === 0) nextDir = {x: inv ? 1 : -1, y: 0};
+    if (key === 'right' && dir.x === 0) nextDir = {x: inv ? -1 : 1, y: 0};
+};
+
+window.addEventListener('keydown', e => {
+    if(e.key === 'ArrowUp') handleInput('up');
+    if(e.key === 'ArrowDown') handleInput('down');
+    if(e.key === 'ArrowLeft') handleInput('left');
+    if(e.key === 'ArrowRight') handleInput('right');
+});
+
+// Swipe sensitivity
+let tX = 0, tY = 0;
+canvas.addEventListener('touchstart', e => {
+    tX = e.touches[0].clientX;
+    tY = e.touches[0].clientY;
+}, {passive: false});
+
+canvas.addEventListener('touchmove', e => {
+    if (!tX || !tY) return;
+    let dx = tX - e.touches[0].clientX;
+    let dy = tY - e.touches[0].clientY;
+    // Require 30px swipe to register
+    if (Math.abs(dx) > 30 || Math.abs(dy) > 30) {
+        if (Math.abs(dx) > Math.abs(dy)) handleInput(dx > 0 ? 'left' : 'right');
+        else handleInput(dy > 0 ? 'up' : 'down');
+        tX = e.touches[0].clientX;
+        tY = e.touches[0].clientY;
+    }
+    e.preventDefault();
+}, {passive: false});
+
+// Start
+for(let i=0; i<4; i++) spawnItem();
+update();
+</script>
+</body>
+</html>

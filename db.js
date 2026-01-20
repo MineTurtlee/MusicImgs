@@ -16,7 +16,7 @@ db.prepare(`
   CREATE TABLE IF NOT EXISTS api_keys (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     user_id INTEGER,
-    key_hash TEXT,
+    shsh TEXT,
     created_at INTEGER
   )
 `).run()
@@ -28,6 +28,15 @@ db.prepare(`
     uses INTEGER NOT NULL DEFAULT 0,
     max_uses INTEGER NOT NULL,
     expiration_date INTEGER
+  )
+`).run()
+
+db.prepare(`
+  CREATE TABLE IF NOT EXISTS admin_keys (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    key TEXT UNIQUE NOT NULL,
+    name TEXT,
+    shsh TEXT
   )
 `).run()
 
