@@ -1,345 +1,301 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Emoji Snake Bug Hunt</title>
-    <style>
-        :root {
-            --bg: #111827;
-            --ui-blue: #60a5fa;
-            --danger: #f87171;
-            --success: #4ade80;
-        }
-        body, html {
-            margin: 0; padding: 0; width: 100%; height: 100%;
-            overflow: hidden; background: #000;
-            display: flex; justify-content: center; align-items: center;
-            font-family: -apple-system, system-ui, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-            touch-action: none;
-        }
-        #game-container {
-            position: relative;
-            width: 375px;
-            height: 812px;
-            background: var(--bg);
-            box-shadow: 0 0 20px rgba(0,0,0,0.5);
-            overflow: hidden;
-        }
-        canvas { display: block; }
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Brain Damage Snake 🐍🧠</title>
 
-        /* UI Safety Zones */
-        #ui-top-right {
-            position: absolute;
-            top: 20px;
-            right: 20px;
-            text-align: right;
-            color: white;
-            pointer-events: none;
-        }
-        #bottom-bar {
-            position: absolute;
-            bottom: 0;
-            width: 100%;
-            height: 100px;
-            background: rgba(0,0,0,0.8);
-            border-top: 2px solid #1f2937;
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-            color: #9ca3af;
-            font-size: 12px;
-            z-index: 10;
-        }
-        #status-effects {
-            position: absolute;
-            top: 100px;
-            right: 15px;
-            display: flex;
-            flex-direction: column;
-            gap: 5px;
-            align-items: flex-end;
-        }
-        .effect-tag {
-            padding: 4px 10px;
-            border-radius: 20px;
-            font-size: 11px;
-            font-weight: bold;
-            color: white;
-            animation: pulse 1s infinite;
-        }
-        @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.6; } 100% { opacity: 1; } }
+<style>
+html, body {
+    margin: 0;
+    width: 100%;
+    height: 100%;
+    background: #000;
+    overflow: hidden;
+    display: grid;
+    place-items: center;
+    font-family: system-ui, sans-serif;
+}
 
-        #overlay {
-            position: absolute;
-            inset: 0;
-            background: rgba(0,0,0,0.85);
-            display: none;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-            color: white;
-            z-index: 100;
-        }
-        .btn {
-            background: var(--success);
-            border: none;
-            padding: 15px 40px;
-            border-radius: 30px;
-            font-weight: bold;
-            margin-top: 20px;
-            cursor: pointer;
-            color: #000;
-        }
-    </style>
+#scale {
+    width: 375px;
+    height: 812px;
+    max-width: 100vw;
+    max-height: 100vh;
+    aspect-ratio: 375 / 812;
+}
+
+#game {
+    width: 100%;
+    height: 100%;
+    background: #0f172a;
+    position: relative;
+    overflow: hidden;
+}
+
+/* fake vibration */
+.shake {
+    animation: shake 0.15s linear;
+}
+@keyframes shake {
+    0% { transform: translate(0,0); }
+    25% { transform: translate(-2px,1px); }
+    50% { transform: translate(2px,-1px); }
+    75% { transform: translate(-1px,2px); }
+    100% { transform: translate(0,0); }
+}
+
+canvas {
+    width: 100%;
+    height: 100%;
+    display: block;
+    touch-action: none;
+}
+
+/* HUD */
+#hud {
+    position: absolute;
+    top: 14px;
+    left: 0;
+    width: 100%;
+    text-align: center;
+    color: white;
+    pointer-events: none;
+}
+
+#thought {
+    position: absolute;
+    bottom: 120px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: #fff;
+    color: #000;
+    padding: 8px 12px;
+    border-radius: 12px;
+    font-size: 13px;
+    opacity: 0;
+    transition: opacity .3s, transform .3s;
+}
+
+#thought.show {
+    opacity: 1;
+    transform: translateX(-50%) translateY(-6px);
+}
+
+.emoji {
+    position: absolute;
+    font-size: 26px;
+    pointer-events: none;
+    animation: float 1s ease-out forwards;
+}
+@keyframes float {
+    from { transform: translateY(0); opacity: 1; }
+    to { transform: translateY(-50px); opacity: 0; }
+}
+
+.cow {
+    position: absolute;
+    font-size: 40px;
+    top: 40%;
+    animation: cow 3s linear forwards;
+}
+@keyframes cow {
+    from { left: -60px; }
+    to { left: 420px; }
+}
+</style>
 </head>
+
 <body>
-
-<div id="game-container">
-    <canvas id="gameCanvas"></canvas>
-    
-    <!-- Top Left Clear for App Logo -->
-
-    <div id="ui-top-right">
-        <div id="score" style="font-size: 32px; font-weight: 800;">0</div>
-        <div id="best" style="font-size: 14px; opacity: 0.7;">BEST: 0</div>
-    </div>
-
-    <div id="status-effects"></div>
-
-    <div id="bottom-bar">
-        <div id="timer">TIME: 00:00</div>
-        <div style="margin-top:5px; font-size: 10px; letter-spacing: 1px;">SWIPE TO STEER</div>
-    </div>
-
-    <div id="overlay">
-        <h1 id="msg">CRASHED!</h1>
-        <div id="final-score" style="font-size: 20px; margin-bottom: 10px;"></div>
-        <button class="btn" onclick="reset()">REBOOT SYSTEM</button>
-    </div>
+<div id="scale">
+<div id="game">
+    <div id="hud">🐍 Score: <span id="score">0</span></div>
+    <div id="thought"></div>
+    <canvas id="c"></canvas>
+</div>
 </div>
 
 <script>
-const canvas = document.getElementById('gameCanvas');
-const ctx = canvas.getContext('2d');
-const GRID = 20;
-const WIDTH = 375;
-const HEIGHT = 812 - 100; // Bottom 100px is safe zone
-canvas.width = WIDTH;
-canvas.height = 812;
+/* === CONFIG === */
+const W = 375, H = 812, GRID = 25;
+const COLS = Math.floor(W / GRID);
+const ROWS = Math.floor(H / GRID);
 
-// --- Game State ---
-let snake = [{x: 9, y: 15}, {x: 9, y: 16}, {x: 9, y: 17}, {x: 9, y: 18}];
-let dir = {x: 0, y: -1};
-let nextDir = {x: 0, y: -1};
-let items = [];
-let score = 0;
-let highScore = localStorage.getItem('snake_ems_best') || 0;
-let startTime = Date.now();
-let effects = {}; 
-let gameActive = true;
+/* === DOM === */
+const canvas = document.getElementById("c");
+const ctx = canvas.getContext("2d");
+canvas.width = W;
+canvas.height = H;
 
-const TYPES = {
-    BUG: { emoji: '🪲', score: 10 },
-    MUSHROOM: { emoji: '🍄', score: 5, effect: 'invert' },
-    SNAIL: { emoji: '🐌', score: 5, effect: 'slow' },
-    BOLT: { emoji: '⚡', score: 20, effect: 'fast' }
-};
+const gameEl = document.getElementById("game");
+const scoreEl = document.getElementById("score");
+const thoughtEl = document.getElementById("thought");
 
-document.getElementById('best').innerText = `BEST: ${highScore}`;
+/* === GAME STATE === */
+let snake, dir, food, score, speed, invert, alive;
 
-function spawnItem() {
-    const keys = Object.keys(TYPES);
-    const typeKey = keys[Math.floor(Math.random() * keys.length)];
-    const item = {
-        x: Math.floor(Math.random() * (WIDTH/GRID)),
-        y: Math.floor(Math.random() * (HEIGHT/GRID)),
-        ...TYPES[typeKey],
-        moveTick: 0
+/* === FUNNY CONTENT === */
+const THOUGHTS = [
+    "why am I a snake",
+    "this was a bad idea",
+    "left feels wrong today",
+    "am I lagging or thinking",
+    "that cow broke physics",
+    "brain.exe stopped",
+    "who coded this",
+    "why am I here",
+    "who am I",
+    "what is this thing",
+    "i should go to a doctor"
+];
+
+const ITEMS = [
+    { emoji: "🍎", type: "normal" },
+    { emoji: "🌶️", type: "fast" },
+    { emoji: "🔄", type: "invert" },
+    { emoji: "🐄", type: "cow" }
+];
+
+/* === HELPERS === */
+function rand(a){ return Math.floor(Math.random()*a); }
+
+function spawnFood() {
+    const item = ITEMS[rand(ITEMS.length)];
+    return {
+        ...item,
+        x: rand(COLS),
+        y: rand(ROWS)
     };
-    // Safe zones: No top-left (logo) and no overlapping snake
-    const collisionHead = snake.some(s => s.x === item.x && s.y === item.y);
-    if ((item.x < 4 && item.y < 4) || collisionHead) return spawnItem();
-    items.push(item);
 }
 
-function moveItems() {
-    items.forEach(item => {
-        item.moveTick++;
-        // Slower relative movement (every 8 snake ticks)
-        if (item.moveTick % 8 === 0) {
-            const axis = Math.random() > 0.5 ? 'x' : 'y';
-            const delta = Math.random() > 0.5 ? 1 : -1;
-            const nextPos = item[axis] + delta;
-            
-            if (axis === 'x') {
-                if (nextPos >= 0 && nextPos < WIDTH/GRID) item.x = nextPos;
-            } else {
-                if (nextPos >= 0 && nextPos < (HEIGHT/GRID)) item.y = nextPos;
-            }
-        }
-    });
+function thought() {
+    thoughtEl.textContent = THOUGHTS[rand(THOUGHTS.length)];
+    thoughtEl.classList.add("show");
+    setTimeout(()=>thoughtEl.classList.remove("show"),1500);
 }
 
-function update() {
-    if (!gameActive) return;
+function shake() {
+    gameEl.classList.add("shake");
+    setTimeout(()=>gameEl.classList.remove("shake"),150);
+}
 
-    moveItems();
-    dir = nextDir;
-    const head = { x: snake[0].x + dir.x, y: snake[0].y + dir.y };
+function emojiPop(x,y,emoji){
+    const e = document.createElement("div");
+    e.className = "emoji";
+    e.textContent = emoji;
+    e.style.left = x+"px";
+    e.style.top = y+"px";
+    gameEl.appendChild(e);
+    setTimeout(()=>e.remove(),1000);
+}
 
-    // Death Checks
-    if (head.x < 0 || head.x >= WIDTH/GRID || head.y < 0 || head.y >= (HEIGHT/GRID) ||
-        snake.some((seg, i) => seg.x === head.x && seg.y === head.y)) {
-        return die();
+function flyingCow(){
+    const c = document.createElement("div");
+    c.className = "cow";
+    c.textContent = "🐄✈️";
+    gameEl.appendChild(c);
+    setTimeout(()=>c.remove(),3000);
+}
+
+/* === INPUT === */
+function setDir(x,y){
+    if (snake.length > 1 &&
+        snake[0].x + x === snake[1].x &&
+        snake[0].y + y === snake[1].y) return;
+    dir = {x,y};
+}
+
+window.addEventListener("keydown",e=>{
+    const m = invert
+        ? {ArrowUp:[0,1],ArrowDown:[0,-1],ArrowLeft:[1,0],ArrowRight:[-1,0]}
+        : {ArrowUp:[0,-1],ArrowDown:[0,1],ArrowLeft:[-1,0],ArrowRight:[1,0]};
+    if(m[e.key]) setDir(...m[e.key]);
+});
+
+/* mobile swipe */
+let sx, sy;
+canvas.addEventListener("touchstart",e=>{
+    sx=e.touches[0].clientX;
+    sy=e.touches[0].clientY;
+},{passive:false});
+
+canvas.addEventListener("touchmove",e=>{
+    if(!sx) return;
+    const dx=e.touches[0].clientX-sx;
+    const dy=e.touches[0].clientY-sy;
+    if(Math.abs(dx)>20||Math.abs(dy)>20){
+        if(Math.abs(dx)>Math.abs(dy))
+            setDir(dx>0?1:-1,0);
+        else
+            setDir(0,dy>0?1:-1);
+        sx=sy=null;
+    }
+    e.preventDefault();
+},{passive:false});
+
+/* === GAME LOOP === */
+function start(){
+    snake=[{x:7,y:15},{x:6,y:15}];
+    dir={x:1,y:0};
+    food=spawnFood();
+    score=0;
+    speed=180;
+    invert=false;
+    alive=true;
+    scoreEl.textContent=0;
+    loop();
+}
+
+function loop(){
+    if(!alive) return;
+
+    const head={x:snake[0].x+dir.x,y:snake[0].y+dir.y};
+
+    if(head.x<0||head.y<0||head.x>=COLS||head.y>=ROWS||
+       snake.some(s=>s.x===head.x&&s.y===head.y)){
+        alive=false;
+        setTimeout(()=>alert("💀 brain gone\nscore: "+score),50);
+        return;
     }
 
     snake.unshift(head);
 
-    // Item Collision
-    let ate = false;
-    for (let i = items.length - 1; i >= 0; i--) {
-        if (head.x === items[i].x && head.y === items[i].y) {
-            const item = items[i];
-            score += item.score;
-            if (item.effect) effects[item.effect] = 40; // Approx 8-10 seconds based on ticks
-            items.splice(i, 1);
-            ate = true;
-            if (score > highScore) {
-                highScore = score;
-                localStorage.setItem('snake_ems_best', highScore);
-            }
-        }
-    }
+    if(head.x===food.x&&head.y===food.y){
+        score++;
+        scoreEl.textContent=score;
+        shake();
+        thought();
+        emojiPop(head.x*GRID,head.y*GRID,food.emoji);
 
-    if (!ate) snake.pop();
-    if (items.length < 4) spawnItem();
+        if(food.type==="fast") speed=Math.max(80,speed-20);
+        if(food.type==="invert"){ invert=true; setTimeout(()=>invert=false,4000); }
+        if(food.type==="cow") flyingCow();
 
-    // Effect timers
-    for (let key in effects) {
-        if (effects[key] > 0) effects[key]--;
-        else delete effects[key];
-    }
+        food=spawnFood();
+    } else snake.pop();
 
-    render();
-    
-    // --- Speed Tuning ---
-    let delay = 220; // Original was 120 (Too fast)
-    if (effects.slow) delay = 350; // Extra slow
-    if (effects.fast) delay = 140; // manageable "fast"
-    
-    setTimeout(update, delay);
+    draw();
+    setTimeout(loop,speed);
 }
 
-function render() {
-    ctx.clearRect(0, 0, WIDTH, canvas.height);
+function draw(){
+    ctx.clearRect(0,0,W,H);
 
-    // Draw Items
-    ctx.font = '16px serif';
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    items.forEach(item => {
-        ctx.fillText(item.emoji, item.x * GRID + GRID/2, item.y * GRID + GRID/2);
-    });
+    ctx.font="22px serif";
+    ctx.textAlign="center";
+    ctx.fillText(food.emoji,food.x*GRID+GRID/2,food.y*GRID+GRID/2+8);
 
-    // Draw Snake
-    snake.forEach((seg, i) => {
-        if (i === 0) {
-            ctx.font = '22px serif';
-            ctx.fillText('🐍', seg.x * GRID + GRID/2, seg.y * GRID + GRID/2);
+    snake.forEach((s,i)=>{
+        if(i===0){
+            ctx.fillText("🐍",s.x*GRID+GRID/2,s.y*GRID+GRID/2+8);
         } else {
-            // Tapering tail logic
-            const ratio = 1 - (i / snake.length);
-            const size = (GRID - 4) * Math.max(0.2, ratio);
-            const offset = (GRID - size) / 2;
-            
-            ctx.fillStyle = effects.invert ? '#f87171' : '#4ade80';
-            ctx.beginPath();
-            ctx.roundRect(seg.x * GRID + offset, seg.y * GRID + offset, size, size, 4);
-            ctx.fill();
+            ctx.fillStyle="#22c55e";
+            ctx.fillRect(s.x*GRID+3,s.y*GRID+3,GRID-6,GRID-6);
         }
     });
-
-    // UI Updates
-    document.getElementById('score').innerText = score;
-    document.getElementById('best').innerText = `BEST: ${highScore}`;
-    const elapsed = Math.floor((Date.now() - startTime) / 1000);
-    const m = String(Math.floor(elapsed/60)).padStart(2,'0');
-    const s = String(elapsed%60).padStart(2,'0');
-    document.getElementById('timer').innerText = `TIME: ${m}:${s}`;
-
-    const statusBox = document.getElementById('status-effects');
-    statusBox.innerHTML = '';
-    Object.keys(effects).forEach(key => {
-        const span = document.createElement('div');
-        span.className = 'effect-tag';
-        span.style.background = (key === 'invert' || key === 'fast') ? 'var(--danger)' : 'var(--ui-blue)';
-        span.innerText = key.toUpperCase();
-        statusBox.appendChild(span);
-    });
 }
 
-function die() {
-    gameActive = false;
-    document.getElementById('overlay').style.display = 'flex';
-    document.getElementById('final-score').innerText = `SCORE: ${score}`;
-}
-
-function reset() {
-    score = 0;
-    snake = [{x: 9, y: 15}, {x: 9, y: 16}, {x: 9, y: 17}, {x: 9, y: 18}];
-    dir = {x: 0, y: -1};
-    nextDir = {x: 0, y: -1};
-    items = [];
-    effects = {};
-    gameActive = true;
-    startTime = Date.now();
-    document.getElementById('overlay').style.display = 'none';
-    for(let i=0; i<4; i++) spawnItem();
-    update();
-}
-
-// Control Logic
-const handleInput = (key) => {
-    const inv = effects.invert;
-    if (key === 'up' && dir.y === 0) nextDir = {x:0, y: inv ? 1 : -1};
-    if (key === 'down' && dir.y === 0) nextDir = {x:0, y: inv ? -1 : 1};
-    if (key === 'left' && dir.x === 0) nextDir = {x: inv ? 1 : -1, y: 0};
-    if (key === 'right' && dir.x === 0) nextDir = {x: inv ? -1 : 1, y: 0};
-};
-
-window.addEventListener('keydown', e => {
-    if(e.key === 'ArrowUp') handleInput('up');
-    if(e.key === 'ArrowDown') handleInput('down');
-    if(e.key === 'ArrowLeft') handleInput('left');
-    if(e.key === 'ArrowRight') handleInput('right');
-});
-
-// Swipe sensitivity
-let tX = 0, tY = 0;
-canvas.addEventListener('touchstart', e => {
-    tX = e.touches[0].clientX;
-    tY = e.touches[0].clientY;
-}, {passive: false});
-
-canvas.addEventListener('touchmove', e => {
-    if (!tX || !tY) return;
-    let dx = tX - e.touches[0].clientX;
-    let dy = tY - e.touches[0].clientY;
-    // Require 30px swipe to register
-    if (Math.abs(dx) > 30 || Math.abs(dy) > 30) {
-        if (Math.abs(dx) > Math.abs(dy)) handleInput(dx > 0 ? 'left' : 'right');
-        else handleInput(dy > 0 ? 'up' : 'down');
-        tX = e.touches[0].clientX;
-        tY = e.touches[0].clientY;
-    }
-    e.preventDefault();
-}, {passive: false});
-
-// Start
-for(let i=0; i<4; i++) spawnItem();
-update();
+start();
 </script>
 </body>
 </html>
