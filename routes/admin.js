@@ -2,6 +2,7 @@ const crypto = require('crypto')
 const bcrypt = require('bcrypt')
 const express = require('express')
 const db = require("../db")
+const { adminAuth } = require("../restricted")
 
 server = express.Router()
 

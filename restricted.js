@@ -1,12 +1,7 @@
 const bcrypt = require('bcrypt')
 const config = require('./config.json')
 const db = require('./db.js')
-
-
 const crypto = require("crypto")
-const bcrypt = require("bcrypt")
-const config = require("./config.json")
-const db = require("./db.js")
 
 const adminAuth = async (req, res, next) => {
     const auth = req.headers.authorization
@@ -73,3 +68,4 @@ const restricted = async (req, res, next) => {
     return res.status(401).json({ error: true })
 }
 
+module.exports = { adminAuth, restricted }
