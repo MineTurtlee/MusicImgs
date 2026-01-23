@@ -1,6 +1,7 @@
 const canvas = require("canvas")
 const express = require("express")
 const { resolveTrack } = require("../lib/resolve.js")
+const { restricted } = require("../restricted.js")
 
 const server = express.Router()
 
@@ -45,10 +46,10 @@ async function handleRequest(req, res) {
     }
 }
 
-server.get("/:source/:id/:name", handleRequest)
-server.get("/:source/:id/:name/:progress", handleRequest)
-server.get("/:source/:id/:progress", handleRequest)
-server.get("/:source/:id", handleRequest)
+server.get("/:source/:id/:name", restricted, handleRequest)
+server.get("/:source/:id/:name/:progress", restricted, handleRequest)
+server.get("/:source/:id/:progress", restricted, handleRequest)
+server.get("/:source/:id", restricted, handleRequest)
 
 /* ============================
      VALIDATION

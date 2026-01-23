@@ -25,9 +25,12 @@ db.prepare(`
   CREATE TABLE IF NOT EXISTS api_keys (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     user_id INTEGER NOT NULL,
+    name TEXT,
     fast_hash TEXT UNIQUE NOT NULL,
     shsh TEXT NOT NULL,
-    created_at INTEGER NOT NULL DEFAULT (strftime('%s','now')),
+    created_at INTEGER NOT NULL,
+    last_used_at INTEGER,
+
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
   )
 `).run()
