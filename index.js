@@ -14,6 +14,7 @@ server.use(express.json())
 server.use('/api/auth', routes.auth)
 server.use('/api/admin', routes.admin)
 server.use('/api/imagen', routes.imagen)
+server.use('/api/keys', routes.keys)
 
 server.listen(config.port, () => {
     console.log(`Server started! Listening on port ${config.port}`)

@@ -1,4 +1,4 @@
-const router = require('express').Router();
+const server = require('express').Router();
 const db = require('../db');
 const { restricted } = require('../restricted');
 
@@ -109,3 +109,5 @@ server.delete("/keys", userAuth, async (req, res) => {
 
     return res.status(204).send()
 })
+
+module.exports = server;

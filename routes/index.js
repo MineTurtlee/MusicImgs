@@ -1,5 +1,6 @@
 module.exports = {
   auth: require("./auth"),
   admin: require("./admin"),
-  imagen: require("./imagen")
+  imagen: require("./imagen"),
+  keys: require("./keys")
 }
