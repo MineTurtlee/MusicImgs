@@ -3,6 +3,13 @@ const config = require('./config.json')
 const db = require('./db.js')
 const crypto = require("crypto")
 
+function fastHash(key) {
+    return crypto
+        .createHash("sha256")
+        .update(key)
+        .digest("hex")
+}
+
 const adminAuth = async (req, res, next) => {
     const auth = req.headers.authorization
     if (!auth?.startsWith("Bearer ")) {
