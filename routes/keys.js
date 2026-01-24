@@ -1,51 +1,11 @@
 const server = require('express').Router();
 const db = require('../db');
+const crypto = require('crypto');
+const bcrypt = require('bcrypt');
 const { restricted } = require('../restricted');
 
-const userAuth = async (req, res, next) => {
-    const { username, password } = req.body
-
-    if (
-        typeof username !== "string" ||
-        typeof password !== "string"
-    ) {
-        return res.status(401).json({
-            error: true,
-            message: "Missing username or password"
-        })
-    }
-
-    const user = db.prepare(`
-        SELECT id, password_hash
-        FROM users
-        WHERE username = ?
-    `).get(username)
-
-    if (!user) {
-        return res.status(401).json({
-            error: true,
-            message: "Invalid credentials"
-        })
-    }
-
-    const ok = await bcrypt.compare(password, user.password_hash)
-    if (!ok) {
-        return res.status(401).json({
-            error: true,
-            message: "Invalid credentials"
-        })
-    }
-
-    req.user = {
-        id: user.id,
-        username
-    }
-
-    next()
-}
-
-server.post("/keys", userAuth, async (req, res) => {
-    const { name, username, password } = req.body
+server.post("/", restricted, async (req, res) => {
+    const { name } = req.body
     const userId = req.user.id
 
     const rawKey = "uimg-" + crypto.randomBytes(24).toString("hex")
@@ -80,7 +40,7 @@ server.post("/keys", userAuth, async (req, res) => {
     })
 })
 
-server.delete("/keys", userAuth, async (req, res) => {
+server.delete("/", restricted, async (req, res) => {
     const { id } = req.body
     const userId = req.user.id
 

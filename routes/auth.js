@@ -1,5 +1,7 @@
 const db = require('../db')
 const express = require('express')
+const bcrypt = require('bcrypt')
+const crypto = require('crypto')
 
 const server = express.Router()
 
@@ -38,9 +40,12 @@ server.post('/register', async (req, res) => {
     }
 
     if (referralRow) {
-        db.prepare(
-            "INSERT INTO users(username, password, referral_id) VALUES (?, ?, ?)"
-        ).run(username, password, referralRow.id)
+        const hashed = await bcrypt.hash(password, 10)
+
+        db.prepare(`
+            INSERT INTO users (username, password, referral_id)
+            VALUES (?, ?, ?)
+        `).run(username, hashed, referralRow.id)
 
         db.prepare(
             "UPDATE referrals SET uses = uses + 1 WHERE id = ?"
@@ -59,13 +64,23 @@ server.delete('/auth', async (req, res) => {
         return res.status(400).json({error: true, message: "One or more required fields is/are not the correct type expected"})
     }
 
-    const existing = db.prepare(
-        "SELECT id FROM users WHERE username = ?"
+    const user = db.prepare(
+        "SELECT id, password FROM users WHERE username = ?"
     ).get(username)
 
-    if (existing) {
-        return res.status(204).json({error: false, message: "User account deleted"})
+    if (!user) {
+        return res.status(404).json({ error: true })
     }
+
+    const ok = await bcrypt.compare(password, user.password)
+    if (!ok) {
+        return res.status(401).json({ error: true })
+    }
+
+    db.prepare("DELETE FROM users WHERE id = ?").run(user.id)
+
+    return res.status(204).send()
+
 })
 
 module.exports = server
