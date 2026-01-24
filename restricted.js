@@ -59,16 +59,19 @@ const restricted = async (req, res, next) => {
             })
         }
 
+        // 1️⃣ fast hash lookup
+        const keyHash = fastHash(apiKey)
+
         const row = db.prepare(`
             SELECT
-                api_keys.id        AS api_key_id,
-                users.id           AS user_id,
-                users.username     AS username
+                api_keys.id            AS api_key_id,
+                api_keys.shsh          AS shsh,
+                users.id               AS user_id,
+                users.username         AS username
             FROM api_keys
             JOIN users ON users.id = api_keys.user_id
-            WHERE api_keys.key = ?
-              AND api_keys.revoked = 0
-        `).get(apiKey)
+            WHERE api_keys.fast_hash = ?
+        `).get(keyHash)
 
         if (!row) {
             return res.status(401).json({
@@ -76,6 +79,24 @@ const restricted = async (req, res, next) => {
                 message: "Invalid API key"
             })
         }
+
+        // 2️⃣ slow hash verification
+        const ok = await bcrypt.compare(apiKey, row.shsh)
+        if (!ok) {
+            return res.status(401).json({
+                error: true,
+                message: "Invalid API key"
+            })
+        }
+
+        // 3️⃣ update last_used_at (fire-and-forget)
+        try {
+            db.prepare(`
+                UPDATE api_keys
+                SET last_used_at = ?
+                WHERE id = ?
+            `).run(Date.now(), row.api_key_id)
+        } catch {}
 
         req.user = {
             id: row.user_id,
