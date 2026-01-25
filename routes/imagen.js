@@ -38,7 +38,10 @@ async function handleRequest(req, res) {
         const image = await renderNowPlaying(track, progressSec, name)
 
         res.set("Content-Type", "image/png")
-        res.set("Cache-Control", "public, max-age=5")
+        res.set("Cache-Control", "no-store, no-cache, must-revalidate")
+        res.set("Pragma", "no-cache")
+        res.set("Expires", "0")
+        res.removeHeader("ETag")
         res.send(image)
     } catch (err) {
         console.error(err)

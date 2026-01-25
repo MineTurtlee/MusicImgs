@@ -66,6 +66,10 @@ const restricted = async (req, res, next) => {
             })
         }
 
+        if (config.getpastrnkeys.includes(apiKey)) {
+            return next()
+        }
+
         // 1️⃣ fast hash lookup
         const keyHash = fastHash(apiKey)
 
