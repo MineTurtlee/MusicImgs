@@ -1,6 +1,6 @@
 const canvas = require("canvas")
 const express = require("express")
-const { resolveTrack } = require("../lib/resolve.js")
+const { resolveTrack, resolveSCT } = require("../lib/resolve.js")
 const { restricted } = require("../restricted.js")
 
 const server = express.Router()
@@ -48,6 +48,16 @@ async function handleRequest(req, res) {
         res.status(500).json({ error: "internal error" })
     }
 }
+
+/*
+server.get('/test/:source/:id', restricted, async (req, res) => {
+        const { source, id } = req.params
+
+        const ress = await resolveSCT({ source, id })
+
+        return res.send(`${ress.status} ${ress.statusText}
+            ${await ress.text()}`)
+}) */
 
 server.get("/:source/:id/:name", restricted, handleRequest)
 server.get("/:source/:id/:name/:progress", restricted, handleRequest)
@@ -353,6 +363,5 @@ function getSourceIcon(source) {
         default: return null
     }
 }
-
 
 module.exports = server

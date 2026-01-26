@@ -4,6 +4,8 @@ const { generateApiKey } = require("./crypto.js")
 const { adminAuth, restricted } = require("./restricted.js")
 const routes = require("./routes")
 const { createCanvas, registerFont } = require("canvas")
+require("./lib/spotify.js")
+require("./lib/soundcloud.js")
 
 registerFont("./fonts/Comfortaa-Regular.ttf", {
   family: "Comfortaa"

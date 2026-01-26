@@ -3,5 +3,16 @@
     "host": "0.0.0.0",
     "getpastrnkeys": [
         "0x4D316E33-54757274-6C3321"
-    ]
+    ],
+    "apiKeys": {
+        "youtube": "AIzaSyCkdOhLA_0Nv2twdniHlw6CXC-4i0SycnY",
+        "soundcloud": {
+            "client_id": "DVTaVLtHCnztlAXI9OX8d6l9BuvC2npp",
+            "client_secret": "RkvyHrKzWJ2oAG7WACXg3RCIoX2FPHn7"
+        },
+        "spotify": {
+            "client_id": "fa2a1cd49b8b4f2aa34d185e9b819f39",
+            "client_secret": "283542c19cd84c5a8271bb96173c378c"
+        }
+    }
 }
